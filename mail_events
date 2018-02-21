@@ -1,0 +1,128 @@
+#!/usr/local/rn_feeds/python/bin/python
+
+import sys
+import os
+import traceback
+import syslog
+import datetime
+import dateutil.tz
+import uuid
+import re
+import email.header
+import smtplib
+import rn_events
+
+local_address = 'events-feed@repronim.org'
+message_id_domain = 'repronim.org'
+
+link_re = re.compile('[ ]*https?://', re.IGNORECASE)
+
+success_template = """ReproNim Event accepted
+
+Description: %s
+Link: %s
+"""
+
+query = """INSERT INTO event (email, description, link) 
+           VALUES (%(email)s, %(description)s, %(link)s)"""
+
+def reply(mo, msg):
+    if not mo['From']:
+        raise ValueError('From must be set in message headers in reply()')
+    rm = email.Message.Message()
+    rm['From'] = local_address
+    rm['To'] = mo['From']
+    now = datetime.datetime.now(tz=dateutil.tz.tzlocal()) 
+    rm['Date'] = now.strftime('%a, %d %b %Y %H:%M:%S %z')
+    if not mo['Subject']:
+        rm['Subject'] = 'Re: '
+    else:
+        rm['Subject'] = 'Re: %s' % mo['Subject']
+    if mo['References']:
+        references = mo['References'].split('\r\n')
+    else:
+        references = []
+    if mo['Message-ID']:
+        rm['In-Reply-To'] = mo['Message-ID']
+        references.append(mo['Message-ID'])
+    if references:
+        rm['References'] = '\r\n'.join(references)
+    rm['Message-ID'] = '%s@%s' % (str(uuid.uuid1()), message_id_domain)
+    rm.set_payload(msg)
+    s = smtplib.SMTP('localhost')
+    s.helo()
+    s.sendmail(local_address, mo['From'], rm.as_string())
+    s.quit()
+    rn_events.log('Sent reply to %s: %s...' % (mo['From'], msg.split('\n')[0][:20]))
+    return
+
+def get_link(mo):
+    if mo.is_multipart():
+        for mo2 in mo.get_payload():
+            link = get_link(mo2)
+            if link:
+                return link
+        return None
+    payload = mo.get_payload(decode=True)
+    for line in payload.split('\n'):
+        if link_re.match(line):
+            return line.strip()
+    return None
+
+def process_message_1():
+#    mo = email.message_from_file(sys.stdin)
+    data = sys.stdin.read()
+    open('/tmp/message.%d' % os.getpid(), 'w').write(data)
+    mo = email.message_from_string(data)
+    if mo['From']:
+        rn_events.log('From: %s' % mo['From'])
+    else:
+        rn_events.log('No From email')
+        raise ValueError('no From email')
+    if mo['Subject']:
+        rn_events.log('Subject: %s' % mo['Subject'])
+    else:
+        rn_events.log('No subject')
+        reply(mo, 'No subject given in ReproNim event e-mail.')
+        return
+    try:
+        process_message_2(mo)
+    except:
+        try:
+            reply(mo, 'Unspecified error.')
+        except:
+            pass
+        raise
+    return
+
+def process_message_2(mo):
+    link = get_link(mo)
+    if link:
+        rn_events.log('Link: %s' % link)
+    else:
+        rn_events.log('No link')
+        reply(mo, 'No link found in ReproNim event e-mail.')
+        return
+    (s, enc) = email.header.decode_header(mo['Subject'])[0]
+    if enc is None:
+        subject = s
+    else:
+        subject = s.decode(enc)
+    rn_events.add_email_event(mo['From'], link, subject)
+    msg = success_template % (s, link)
+    reply(mo, msg)
+    return
+
+try:
+    rn_events.log('Email processing starting')
+    process_message_1()
+    rn_events.log('Email processing done')
+except:
+    try:
+        rn_events.log(traceback.format_exc())
+    except:
+        syslog.syslog('error handing error in rn events receiver')
+
+sys.exit(0)
+
+# eof
