@@ -10,7 +10,7 @@ db_params = {'host': 'localhost',
              'password': open('/etc/rn_feeds.pw').read().strip()}
 
 # minimum time in seconds between hypothesis updates
-hypothesis_dt = 6
+hypothesis_dt = 600
 hypothesis_t_fname = '/tmp/rn_events_t'
 
 try:
