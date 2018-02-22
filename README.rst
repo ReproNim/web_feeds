@@ -16,3 +16,4 @@ Installation on virtualbrain:
 - move mail_events to /usr/local/rn_feeds and configure postfix to use this script to handle mail to events-feed
 - touch /var/log/rn_events and make sure it is writable by both the apache2 user and the postfix user (e.g. chown nobody:www-data, chgrp ug+w)
 - create /etc/rn_feeds.pw containing the database password
+- add hypothesis users to /etc/rn_events_hypothesis
