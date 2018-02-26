@@ -67,10 +67,17 @@ def get_events(n=None):
     set n to get the n latest events
     """
     if n is None:
-        query = "SELECT url, headline FROM event ORDER BY time DESC"
+        query = """SELECT url, headline 
+                     FROM event 
+                    WHERE active 
+                    ORDER BY time DESC"""
         params = ()
     elif isinstance(n, int):
-        query = "SELECT url, headline FROM event ORDER BY time DESC LIMIT %s"
+        query = """SELECT url, headline 
+                     FROM event 
+                    WHERE active 
+                    ORDER BY time DESC 
+                    LIMIT %s"""
         params = (n, )
     else:
         raise TypeError('n must be an integer or None')
