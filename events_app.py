@@ -21,7 +21,9 @@ def index():
                               status=400, 
                               mimetype='text/plain')
     data = json.dumps(events)
-    return flask.Response(data, mimetype='application/json')
+    response = flask.Response(data, mimetype='application/json')
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/rss')
 def rss():
