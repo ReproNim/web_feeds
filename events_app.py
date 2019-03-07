@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, '/usr/local/rn_feeds/python/lib/python2.7/site-packages')
+sys.path.append('/usr/local/rn_feeds')
 import flask
 import json
 import feedgenerator
@@ -9,6 +9,7 @@ app = flask.Flask(__name__)
 
 @app.route('/')
 def index():
+    rn_events.fetch_hypothesis_timed()
     try:
         n = int(flask.request.args['n'])
         rn_events.fetch_hypothesis_timed()
